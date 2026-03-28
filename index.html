@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>MATRIX: EVOLUTION V16.5</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=JetBrains+Mono&display=swap');
+        :root { --neon: #00f2ff; --pink: #ff007a; --gold: #f1c40f; --bg: #000; --glass: rgba(10, 10, 25, 0.95); --red: #ff3e3e; --green: #2ecc71; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: white; font-family: 'JetBrains Mono', monospace; }
+        canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+        #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 2000; display: none; flex-direction: column; align-items: center; padding: 10px; background: rgba(0,0,0,0.95); border-bottom: 1px solid rgba(0,242,255,0.2); }
+        #royal-banner { width: 100%; max-width: 600px; min-height: 30px; background: var(--gold); color: black; display: flex; align-items: center; justify-content: center; font-family: 'Orbitron'; font-size: 0.6rem; font-weight: 900; border-radius: 4px; margin-bottom: 8px; text-transform: uppercase; padding: 5px; text-align: center; }
+        .nav-bar { display: flex; gap: 4px; width: 100%; max-width: 650px; justify-content: center; margin-bottom: 8px; }
+        .nav-btn { background: var(--glass); color: white; border: 1px solid rgba(255,255,255,0.1); padding: 10px 2px; border-radius: 6px; font-family: 'Orbitron'; font-size: 0.5rem; cursor: pointer; flex: 1; }
+        .nav-btn.active { background: var(--neon); color: black; font-weight: 900; }
+        .screen { position: fixed; inset: 0; z-index: 100; display: none; flex-direction: column; padding: 180px 20px 40px 20px; overflow-y: auto; background: rgba(0,0,0,0.92); backdrop-filter: blur(12px); }
+        .panel { background: var(--glass); border-radius: 12px; padding: 15px; border: 1px solid rgba(0, 242, 255, 0.2); width: 100%; max-width: 500px; margin: 0 auto 15px auto; }
+        .grade-pill { flex:1; padding:12px; border:1px solid #333; border-radius:8px; font-family:'Orbitron'; font-size:0.6rem; text-align:center; cursor: pointer; }
+        .grade-pill.active { border-color: var(--neon); color: var(--neon); background: rgba(0, 242, 255, 0.1); }
+        #q-text { font-size: 4.5rem; font-family: 'Orbitron'; color: var(--neon); text-align: center; margin: 20px 0; text-shadow: 0 0 15px var(--neon); }
+        #opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 500px; margin: 0 auto; }
+        .math-opt { width: 100%; padding: 40px 10px; border-radius: 15px; border: 3px solid var(--neon); background: rgba(0,242,255,0.05); color: white; font-family: 'Orbitron'; font-size: 2.2rem; cursor: pointer; }
+        .input-field { width: 100%; padding: 12px; margin: 5px 0; background: #000; border: 1px solid #444; color: white; border-radius: 8px; font-family: 'Orbitron'; text-align: center; font-size: 0.8rem; }
+        .action-btn { width: 100%; padding: 14px; border-radius: 10px; border: none; font-weight: 900; background: var(--pink); color: white; font-family: 'Orbitron'; cursor: pointer; font-size: 0.8rem; margin: 5px 0; }
+        .lb-row { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #222; font-size: 0.7rem; }
+    </style>
+</head>
+<body>
+    <canvas id="world"></canvas>
+    
+    <div id="screen-auth" class="screen" style="display:flex; justify-content:center; align-items:center; z-index:5000; padding:0; background: #000;">
+        <div class="panel" style="max-width: 320px; text-align: center;">
+            <h1 style="font-family:'Orbitron'; color:var(--neon);">MATRIX</h1>
+            <input type="text" id="auth-u" class="input-field" placeholder="USER ID">
+            <input type="password" id="auth-p" class="input-field" placeholder="PASSCODE">
+            <button class="action-btn" style="background:var(--neon); color:black;" onclick="Auth.execute()">INITIALIZE</button>
+        </div>
+    </div>
+
+    <div id="hud">
+        <div id="royal-banner">ESTABLISHING CONNECTION...</div>
+        <div class="nav-bar">
+            <button class="nav-btn" onclick="Router.go('core')">MATH</button>
+            <button class="nav-btn" onclick="Router.go('shop')">SHOP</button>
+            <button class="nav-btn" onclick="App.openCollection()">BACKPACK</button>
+            <button class="nav-btn" onclick="Router.go('rank')">RANK</button>
+            <button id="nav-king" class="nav-btn" style="display:none; color:var(--gold);" onclick="Router.go('king')">KING</button>
+        </div>
+        <div style="display:flex; gap:25px; font-family:'Orbitron'; font-size:0.9rem;">
+            <div style="color:var(--gold);">💎 <span id="gems-display">0</span></div>
+            <div style="color:var(--pink);">RB: <span id="rb-display">0</span></div>
+        </div>
+    </div>
+
+    <div id="screen-core" class="screen">
+        <div style="display:flex; gap:10px; justify-content:center; margin-bottom:20px; width:100%; max-width:500px; margin: 0 auto 20px auto;">
+            <div id="gp-1" class="grade-pill" onclick="App.setGrade(1)">G 1-4</div>
+            <div id="gp-5" class="grade-pill" onclick="App.setGrade(5)">G 5-10</div>
+            <div id="gp-11" class="grade-pill" onclick="App.setGrade(11)">ADULT</div>
+        </div>
+        <div id="q-text">...</div><div id="opt-grid"></div>
+    </div>
+
+    <div id="screen-rank" class="screen">
+        <div class="panel" style="border-color:var(--gold);"><h3>💎 TOP GEMS</h3><div id="lb-gems"></div></div>
+        <div class="panel" style="border-color:var(--pink);"><h3>🌀 TOP REBIRTH</h3><div id="lb-rebirth"></div></div>
+        <div class="panel" style="border-color:var(--neon);"><h3>🕒 TIME LORDS</h3><div id="lb-time"></div></div>
+    </div>
+
+    <div id="screen-collection" class="screen">
+        <h2 style="text-align:center; font-family:'Orbitron';">BACKPACK</h2>
+        <div id="item-grid" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;"></div>
+    </div>
+
+    <div id="screen-shop" class="screen">
+        <div class="panel" style="text-align:center;">
+            <h3 id="rb-cost-preview" style="color:var(--pink);">COST: ---</h3>
+            <button id="btn-rebirth" class="action-btn">REBIRTH</button>
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:15px; width:100%; max-width:500px; margin:0 auto 15px auto;">
+            <button class="nav-btn active" id="shop-tab-norm" onclick="App.switchShopTab('normal')">GENERAL</button>
+            <button class="nav-btn" id="shop-tab-crown" onclick="App.switchShopTab('crown')">👑 CROWN SHOP</button>
+        </div>
+        <div id="shop-list" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;"></div>
+    </div>
+
+    <div id="screen-king" class="screen">
+        <h2 style="color:var(--gold); text-align:center;">KING OVERRIDE</h2>
+        <div class="panel" style="border-color:var(--gold)">
+            <h4 style="font-size:0.6rem;">BROADCAST & TAX</h4>
+            <input type="text" id="k-msg" class="input-field" placeholder="GLOBAL MESSAGE...">
+            <button class="action-btn" style="background:var(--gold); color:black;" onclick="App.sendBroadcast()">EXECUTE BROADCAST</button>
+            <button class="action-btn" style="background:var(--gold); color:black; margin-top:10px;" onclick="App.collectTax()">COLLECT 5% GLOBAL TAX</button>
+        </div>
+        <div class="panel" style="border-color:var(--neon)">
+            <h4 style="font-size:0.6rem;">FORGE ITEM</h4>
+            <input type="text" id="m-name" class="input-field" placeholder="NAME">
+            <input type="text" id="m-icon" class="input-field" placeholder="ICON">
+            <input type="number" id="m-price" class="input-field" placeholder="PRICE">
+            <input type="number" id="m-stock" class="input-field" placeholder="STOCK">
+            <select id="m-tier" class="input-field" style="background:black; color:white;">
+                <option value="normal">GENERAL SHOP</option>
+                <option value="crown">👑 CROWN SHOP</option>
+            </select>
+            <button class="action-btn" style="background:var(--neon); color:black;" onclick="App.forgeItem()">LIST ITEM</button>
+        </div>
+        <div class="panel" style="border-color:var(--pink)">
+            <h4 style="font-size:0.6rem;">STOCK PRECISION</h4>
+            <div id="k-restock-list"></div>
+        </div>
+        <div class="panel" style="border-color:var(--red)">
+            <button class="action-btn" style="background:var(--red);" onclick="App.omegaWipe()">!!! OMEGA WIPE !!!</button>
+        </div>
+    </div>
+
+<script>
+const firebaseConfig = { databaseURL: "https://nexus-firebase-900d4-default-rtdb.firebaseio.com/" };
+firebase.initializeApp(firebaseConfig);
+const DB = firebase.database();
+
+const Auth = {
+    async execute() {
+        const u = document.getElementById('auth-u').value.toUpperCase().trim();
+        const p = document.getElementById('auth-p').value.trim();
+        if(!u || !p) return;
+        const s = await DB.ref('users/' + u).once('value');
+        let d = s.val();
+        if(!d) { d = { name: u, pass: p, gems: 500, rebirth: 0, timePlayed: 0 }; await DB.ref('users/' + u).set(d); }
+        if(d.pass === p) {
+            document.getElementById('screen-auth').style.display='none';
+            document.getElementById('hud').style.display='flex';
+            if(u === 'KING') document.getElementById('nav-king').style.display='block';
+            App.init(d); Router.go('core');
+        }
+    }
+};
+
+const Router = {
+    go(s) {
+        document.querySelectorAll('.screen').forEach(x => x.style.display='none');
+        document.getElementById('screen-'+s).style.display = (s==='core'?'flex':'block');
+        if(s==='shop') App.drawShop();
+        if(s==='king') App.drawKingTools();
+    }
+};
+
+const App = {
+    init(d) {
+        this.u = d.name; this.gems = d.gems; this.rebirth = Number(d.rebirth) || 0; this.grade = 1; this.shopTab = 'normal';
+        this.setupSync(); this.init3D(); this.animate(); this.setGrade(1);
+        setInterval(() => { DB.ref('users/'+this.u+'/timePlayed').transaction(t => (t||0)+1); }, 60000);
+    },
+    setupSync() {
+        DB.ref('users/'+this.u).on('value', s => {
+            const v = s.val(); if(!v) return;
+            this.gems = v.gems; this.rebirth = Number(v.rebirth) || 0;
+            document.getElementById('gems-display').innerText = Math.floor(this.gems).toLocaleString();
+            document.getElementById('rb-display').innerText = this.rebirth;
+        });
+        // GLOBAL BROADCAST SYNC
+        DB.ref('system/broadcast').on('value', s => { 
+            document.getElementById('royal-banner').innerText = s.val() || "SYSTEM ONLINE"; 
+        });
+        // LEADERBOARD SYNC WITH STRICT UNDEFINED PURGE
+        DB.ref('users').on('value', s => {
+            const lg = document.getElementById('lb-gems'), lr = document.getElementById('lb-rebirth'), lt = document.getElementById('lb-time');
+            lg.innerHTML = ''; lr.innerHTML = ''; lt.innerHTML = ''; let arr = [];
+            s.forEach(c => { 
+                const d = c.val(); 
+                if(d && d.name && d.name !== 'KING') arr.push(d); 
+            });
+            const validUsers = arr.filter(u => u.name !== undefined && u.name !== "undefined");
+            [...validUsers].sort((a,b)=>Number(b.gems)-Number(a.gems)).slice(0,10).forEach(u=>{
+                lg.innerHTML += `<div class="lb-row"><span>${u.name}</span><span>${Math.floor(u.gems).toLocaleString()}</span></div>`;
+            });
+            [...validUsers].sort((a,b)=>Number(b.rebirth)-Number(a.rebirth)).slice(0,10).forEach(u=>{
+                lr.innerHTML += `<div class="lb-row"><span>${u.name}</span><span>RB ${u.rebirth}</span></div>`;
+            });
+            [...validUsers].sort((a,b)=>Number(b.timePlayed||0)-Number(a.timePlayed||0)).slice(0,10).forEach(u=>{
+                lt.innerHTML += `<div class="lb-row"><span>${u.name}</span><span>${u.timePlayed||0}m</span></div>`;
+            });
+        });
+    },
+    setGrade(g) {
+        this.grade = g; document.querySelectorAll('.grade-pill').forEach(p => p.classList.remove('active'));
+        document.getElementById('gp-'+g).classList.add('active'); this.nextQ();
+    },
+    nextQ() {
+        let a, b;
+        if(this.grade === 1) { a = Math.floor(Math.random()*10)+1; b = Math.floor(Math.random()*5)+1; }
+        else if(this.grade === 5) { a = Math.floor(Math.random()*15)+5; b = Math.floor(Math.random()*10)+2; }
+        else { a = Math.floor(Math.random()*30)+10; b = Math.floor(Math.random()*20)+5; }
+        this.ans = a * b; const reward = this.grade * 100;
+        document.getElementById('q-text').innerText = `${a} × ${b}`;
+        const grid = document.getElementById('opt-grid'); grid.innerHTML = '';
+        [this.ans, this.ans+5, this.ans-3, this.ans+12].sort(()=>Math.random()-0.5).forEach(o => {
+            const btn = document.createElement('button'); btn.className = 'math-opt'; btn.innerText = o;
+            btn.onclick = () => {
+                if(o === this.ans) {
+                    this.gems += Math.floor(reward * (1 + this.rebirth * 0.5));
+                    confetti({ particleCount: 150, spread: 70 });
+                } else { this.gems = Math.max(0, this.gems - reward); }
+                DB.ref('users/'+this.u).update({gems: this.gems}); this.nextQ();
+            };
+            grid.appendChild(btn);
+        });
+    },
+    switchShopTab(t) {
+        if(t === 'crown' && this.rebirth < 5) { alert("RB 5+ ONLY"); return; }
+        this.shopTab = t; document.getElementById('shop-tab-norm').classList.toggle('active', t==='normal');
+        document.getElementById('shop-tab-crown').classList.toggle('active', t==='crown'); this.drawShop();
+    },
+    drawShop() {
+        const cost = 500 + (2000 * this.rebirth);
+        document.getElementById('rb-cost-preview').innerText = `NEXT REBIRTH: ${cost.toLocaleString()} 💎`;
+        document.getElementById('btn-rebirth').onclick = () => { if(this.gems >= cost) DB.ref('users/'+this.u).update({rebirth: this.rebirth+1, gems: 0}); };
+        const list = document.getElementById('shop-list');
+        DB.ref('system/shop').on('value', s => {
+            list.innerHTML = '';
+            s.forEach(c => {
+                const item = c.val(); if(item.tier !== this.shopTab) return;
+                list.innerHTML += `<div class="panel" style="text-align:center;"><div>${item.icon}</div><b>${item.name}</b><br><small>${item.price}💎 (Stk: ${item.stock})</small><br><button class="action-btn" onclick="App.buyItem('${c.key}')" ${item.stock<=0?'disabled':''}>BUY</button></div>`;
+            });
+        });
+    },
+    async buyItem(k) {
+        const s = await DB.ref('system/shop/'+k).once('value'); const item = s.val();
+        if(this.gems >= item.price && item.stock > 0) {
+            this.gems -= item.price; DB.ref('users/'+this.u).update({gems: this.gems});
+            DB.ref('users/'+this.u+'/backpack').push(item);
+            DB.ref('system/shop/'+k+'/stock').transaction(curr => curr - 1);
+        }
+    },
+    openCollection() {
+        Router.go('collection'); const grid = document.getElementById('item-grid'); grid.innerHTML = '';
+        DB.ref('users/'+this.u+'/backpack').once('value', s => { if(s.exists()) s.forEach(c => { const i = c.val(); grid.innerHTML += `<div class="panel" style="text-align:center;"><div>${i.icon}</div><small>${i.name}</small></div>`; }); });
+    },
+    drawKingTools() {
+        const rl = document.getElementById('k-restock-list');
+        DB.ref('system/shop').on('value', s => {
+            rl.innerHTML = '';
+            s.forEach(c => { const d = c.val(); rl.innerHTML += `<div class="lb-row"><span>${d.name} (${d.stock})</span><div style="display:flex;gap:5px;"><input type="number" id="stk-${c.key}" style="width:45px;color:black;"><button onclick="App.setExactStock('${c.key}')">SET</button></div></div>`; });
+        });
+    },
+    setExactStock(k) { const v = parseInt(document.getElementById('stk-'+k).value); if(!isNaN(v)) DB.ref('system/shop/'+k).update({stock: v}); },
+    forgeItem() {
+        const n=document.getElementById('m-name').value, i=document.getElementById('m-icon').value, p=parseInt(document.getElementById('m-price').value), s=parseInt(document.getElementById('m-stock').value), t=document.getElementById('m-tier').value;
+        if(n && i && !isNaN(p)) { DB.ref('system/shop').push({name:n, icon:i, price:p, stock:s, tier:t}); alert("FORGED"); }
+    },
+    sendBroadcast() { const m = document.getElementById('k-msg').value.toUpperCase(); if(m) DB.ref('system/broadcast').set("👑 KING: " + m); },
+    collectTax() {
+        DB.ref('users').once('value', s => {
+            let totalTaxed = 0;
+            s.forEach(c => {
+                const d = c.val();
+                if(d.name !== 'KING' && d.gems > 0) {
+                    const tax = Math.floor(d.gems * 0.05);
+                    DB.ref('users/'+c.key+'/gems').transaction(g => Math.max(0, g - tax));
+                    totalTaxed += tax;
+                }
+            });
+            DB.ref('users/KING/gems').transaction(g => (g || 0) + totalTaxed);
+            alert("COLLECTED " + totalTaxed + " GEMS FROM THE POPULACE.");
+        });
+    },
+    omegaWipe() { if(confirm("RESET ENTIRE SYSTEM?")) DB.ref('users').once('value', s => s.forEach(c => { if(c.key!=='KING') DB.ref('users/'+c.key).update({gems:0, rebirth:0, timePlayed:0}); })); },
+    init3D() {
+        this.scene = new THREE.Scene(); this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        this.renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('world'), alpha: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(15, 1), new THREE.MeshBasicMaterial({color: 0x00f2ff, wireframe: true}));
+        this.scene.add(this.mesh); this.camera.position.z = 40;
+    },
+    animate() { requestAnimationFrame(()=>this.animate()); if(this.mesh) this.mesh.rotation.y += 0.005; this.renderer.render(this.scene, this.camera); }
+};
+</script>
+</body>
+</html>
